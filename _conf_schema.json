@@ -13,7 +13,7 @@
   },
   "enable_image": {
     "description": "是否发送视频封面图",
-    "type": "boolean",
+    "type": "bool",
     "default": true
   }
 }
