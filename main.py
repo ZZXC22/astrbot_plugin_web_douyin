@@ -1,13 +1,18 @@
 import random
 from astrbot.core import logger
-from astrbot.api.event import filter  # ← 这里是关键修正！
+from astrbot.api.event import filter
 from astrbot.api.star import Context, Star
-from astrbot.core.message.message_event_result import MessageEventResult, MessageChain
+from astrbot.core.message.message_event_result import MessageChain
 import httpx
 
 class WebDouyinPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
+        # 读取配置
+        self.config = context.get_config() or {}
+        self.search_timeout = self.config.get("search_timeout", 10)
+        self.douyin_api = self.config.get("douyin_api", "https://v.api.aa1.cn/api/douyin/hot.php")
+        self.enable_image = self.config.get("enable_image", True)
 
     # ==================== 命令 ====================
     @filter.command("搜索", alias=["查", "搜"])
@@ -46,15 +51,15 @@ class WebDouyinPlugin(Star):
         desc = video.get('desc', '')[:120]
         
         chain = MessageChain().text(f"🎥 抖音热门推荐：\n【{title}】\n{desc}\n🔗 {share_url}")
-        if video.get('cover'):
+        if self.enable_image and video.get('cover'):
             chain.image(video['cover'])
         return event.set_result(chain)
 
     # ==================== 实现 ====================
     async def _do_web_search(self, query: str) -> str:
-        """联网搜索（DuckDuckGo）"""
+        """联网搜索"""
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with httpx.AsyncClient(timeout=self.search_timeout) as client:
                 resp = await client.get(
                     f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
                 )
@@ -69,7 +74,7 @@ class WebDouyinPlugin(Star):
         """抖音热搜"""
         try:
             async with httpx.AsyncClient(timeout=8) as client:
-                resp = await client.get("https://v.api.aa1.cn/api/douyin/hot.php")
+                resp = await client.get(self.douyin_api)
                 data = resp.json()
                 return data.get("data", [])[:20]
         except:
@@ -79,7 +84,7 @@ class WebDouyinPlugin(Star):
         """抖音热门视频"""
         try:
             async with httpx.AsyncClient(timeout=8) as client:
-                resp = await client.get("https://v.api.aa1.cn/api/douyin/hot.php")
+                resp = await client.get(self.douyin_api)
                 data = resp.json()
                 return data.get("data", [])
         except:
