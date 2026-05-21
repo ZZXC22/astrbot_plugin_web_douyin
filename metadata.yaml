@@ -1,17 +1,9 @@
-name: web_douyin
-display_name: 联网搜索与抖音热门
-desc: |-
-  一个功能强大的联网工具插件，支持：
-  • 实时联网搜索网页信息（关键词查询）
-  • 获取抖音实时热搜榜
-  • 推荐抖音热门视频和网络梗
-  • 可发送视频封面、分享链接
-  适合需要快速获取网络资讯和热点内容的场景。
-version: 1.0.1
-author: ZZXC22
-priority: 0
-requirements:
-  - aiohttp
-  - httpx
-short_desc: 联网搜索 + 抖音热搜/热门视频/梗
-# support_platforms: []   # 留空支持所有平台
+name: RealtimeInfo
+author: YourName
+version: 2.0.0
+desc: 实时网络热点与讯息插件（自然聊天式响应，支持成人内容描述，仅明确要求时提供链接）
+display_name: 实时网络资讯
+short_desc: 让机器人实时了解网络热点、热梗，并自然融入聊天（支持色情内容）
+astrbot_version: ">=1.0.0"
+support_platforms: ["qq", "telegram", "wechat", "discord"]  # 根据需要调整
+repo: "https://github.com/你的用户名/astrbot_plugin_realtime_info"
