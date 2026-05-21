@@ -1,24 +1,88 @@
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
-from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
+import random
+from astrbot.core import logger
+from astrbot import filter as astrbot_filter
+from astrbot.core.star import Context, Star
+from astrbot.core.message.message_event_result import MessageEventResult, MessageChain
+import httpx
 
-@register("helloworld", "YourName", "一个简单的 Hello World 插件", "1.0.0")
-class MyPlugin(Star):
+class WebDouyinPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
 
-    async def initialize(self):
-        """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
+    # ==================== 命令 ====================
+    @astrbot_filter.command("搜索", alias=["查", "搜"])
+    async def web_search(self, event, query: str):
+        """联网搜索：搜索 关键词"""
+        if not query:
+            return event.plain_result("请输入搜索关键词，例如：搜索 今天天气")
+        
+        result = await self._do_web_search(query)
+        return event.plain_result(f"🔍 搜索「{query}」结果：\n{result}")
 
-    # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
-    @filter.command("helloworld")
-    async def helloworld(self, event: AstrMessageEvent):
-        """这是一个 hello world 指令""" # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
-        user_name = event.get_sender_name()
-        message_str = event.message_str # 用户发的纯文本消息字符串
-        message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
-        logger.info(message_chain)
-        yield event.plain_result(f"Hello, {user_name}, 你发了 {message_str}!") # 发送一条纯文本消息
+    @astrbot_filter.command("抖音热搜")
+    async def douyin_hot(self, event):
+        """抖音实时热搜"""
+        hot_list = await self._get_douyin_hot()
+        if not hot_list:
+            return event.plain_result("获取抖音热搜失败，请稍后重试。")
+        
+        msg = "🔥 抖音实时热搜 Top 10：\n"
+        for i, item in enumerate(hot_list[:10], 1):
+            title = item.get('title', 'N/A')
+            hot = item.get('hot', item.get('view_count', 'N/A'))
+            msg += f"{i}. {title} ({hot})\n"
+        return event.plain_result(msg)
 
-    async def terminate(self):
-        """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
+    @astrbot_filter.command("抖音热门")
+    async def douyin_popular(self, event):
+        """抖音热门视频推荐"""
+        videos = await self._get_douyin_popular()
+        if not videos:
+            return event.plain_result("获取热门视频失败，请稍后重试。")
+        
+        video = random.choice(videos[:15])
+        title = video.get('title', '未知标题')
+        share_url = video.get('share_url', video.get('url', ''))
+        desc = video.get('desc', '')[:120]
+        
+        chain = MessageChain().text(f"🎥 抖音热门推荐：\n【{title}】\n{desc}\n🔗 {share_url}")
+        if video.get('cover'):
+            chain.image(video['cover'])
+        return event.set_result(chain)
+
+    # ==================== 实现 ====================
+    async def _do_web_search(self, query: str) -> str:
+        """联网搜索（DuckDuckGo）"""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
+                )
+                data = resp.json()
+                abstract = data.get("AbstractText") or "未找到详细结果，可尝试其他关键词。"
+                return abstract[:400]
+        except Exception as e:
+            logger.error(f"搜索失败: {e}")
+            return "搜索出错，请稍后重试。"
+
+    async def _get_douyin_hot(self):
+        """抖音热搜"""
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                # 免费公开接口（可替换更稳定源）
+                resp = await client.get("https://v.api.aa1.cn/api/douyin/hot.php")
+                data = resp.json()
+                return data.get("data", [])[:20]
+        except:
+            # 备用数据
+            return [{"title": "当前热搜接口维护中", "hot": "请稍后再试"}]
+
+    async def _get_douyin_popular(self):
+        """抖音热门视频"""
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                resp = await client.get("https://v.api.aa1.cn/api/douyin/hot.php")
+                data = resp.json()
+                return data.get("data", [])
+        except:
+            return [{"title": "热门视频加载中...", "share_url": "https://douyin.com", "cover": None, "desc": "请稍后重试"}]
