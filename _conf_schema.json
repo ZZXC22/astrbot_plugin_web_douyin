@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "enable_realtime": { "type": "boolean", "default": true, "title": "启用实时联网" },
+    "cache_ttl_sec": { "type": "integer", "default": 300, "minimum": 60, "title": "缓存秒数" },
+
+    "enable_bilibili": { "type": "boolean", "default": true, "title": "启用B站" },
+    "enable_weibo": { "type": "boolean", "default": true, "title": "启用微博" },
+    "enable_douyin": { "type": "boolean", "default": true, "title": "启用抖音" },
+    "enable_xiaohongshu": { "type": "boolean", "default": true, "title": "启用小红书" },
+
+    "douyin_api_url": {
+      "type": "string",
+      "default": "",
+      "title": "抖音热榜API URL",
+      "description": "建议填你可控的聚合API，返回JSON"
+    },
+    "xiaohongshu_api_url": {
+      "type": "string",
+      "default": "",
+      "title": "小红书热榜API URL",
+      "description": "建议填你可控的聚合API，返回JSON"
+    },
+
+    "reply_style": {
+      "type": "string",
+      "default": "自然",
+      "enum": ["自然", "简洁", "活泼"],
+      "title": "回复风格"
+    },
+    "allow_link_on_explicit_request": {
+      "type": "boolean",
+      "default": true,
+      "title": "仅明确要求时给链接"
+    }
+  },
+  "required": ["enable_realtime"]
+}
