@@ -1,14 +1,16 @@
-# astrbot-plugin-helloworld
+# astrbot_plugin_realtime_info
 
-AstrBot 插件模板 / A template plugin for AstrBot plugin feature
+**实时网络资讯插件**  
+让你的机器人像真人一样实时了解抖音、B站、微博、小红书等平台的热点、热梗，并在聊天中自然融入描述。
 
-> [!NOTE]
-> This repo is just a template of [AstrBot](https://github.com/AstrBotDevs/AstrBot) Plugin.
-> 
-> [AstrBot](https://github.com/AstrBotDevs/AstrBot) is an agentic assistant for both personal and group conversations. It can be deployed across dozens of mainstream instant messaging platforms, including QQ, Telegram, Feishu, DingTalk, Slack, LINE, Discord, Matrix, etc. In addition, it provides a reliable and extensible conversational AI infrastructure for individuals, developers, and teams. Whether you need a personal AI companion, an intelligent customer support agent, an automation assistant, or an enterprise knowledge base, AstrBot enables you to quickly build AI applications directly within your existing messaging workflows.
+### 特性
+- 实时抓取并语言描述热点（不主动推送）
+- 支持成人内容自然描述（可配置开关）
+- **仅用户明确要求**才提供链接（Google safe=off 支持成人）
+- 丰富配置 + WebUI 支持
+- 完全不影响人物设定和固定提示词
 
-# Supports
+### 配置项（WebUI 直接修改）
+- 启用成人内容、缓存时间、B站/微博开关、回复语气等
 
-- [AstrBot Repo](https://github.com/AstrBotDevs/AstrBot)
-- [AstrBot Plugin Development Docs (Chinese)](https://docs.astrbot.app/dev/star/plugin-new.html)
-- [AstrBot Plugin Development Docs (English)](https://docs.astrbot.app/en/dev/star/plugin-new.html)
+安装：`plugin i https://github.com/你的用户名/astrbot_plugin_realtime_info`
