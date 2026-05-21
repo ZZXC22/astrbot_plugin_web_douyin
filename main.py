@@ -13,7 +13,7 @@ class RealtimeInfoPlugin(Star):
         self.session = None
         self.cache = {}
         self.last_fetch = 0
-        logger.info("RealtimeInfoPlugin 初始化成功")
+        logger.info("✅ RealtimeInfoPlugin 初始化成功！")
 
     async def get_session(self):
         if not self.session:
@@ -57,11 +57,13 @@ class RealtimeInfoPlugin(Star):
             logger.error(f"fetch_url_title 错误: {e}")
             return f"这个链接你直接点开吧：{url}"
 
-    @register("realtime_info", "实时网络资讯", "调试版", [])
+    @register("realtime_info", "实时网络资讯", "自然聊天", [])
     async def handle(self, event: AstrMessageEvent):
         try:
-            msg = str(event.message_str).strip().lower()   # 强制转 str 防止类型问题
-            orig = str(event.message_str).strip()
+            # 强制确保是字符串，防止类型问题
+            message_str = str(getattr(event, 'message_str', ''))
+            msg = message_str.strip().lower()
+            orig = message_str.strip()
 
             # 明确要链接
             if any(k in msg for k in ["!网址", "!链接", "!get", "发链接", "给个链接", "网址", "链接"]):
@@ -74,8 +76,10 @@ class RealtimeInfoPlugin(Star):
                 return True
 
             # 实时热点
-            if any(k in msg for k in ["热点", "热搜", "现在网上", "最近流行", "有什么新鲜", "抖音", "b站"]):
+            if any(k in msg for k in ["热点", "热搜", "现在网上", "最近流行", "有什么新鲜", "抖音", "b站", "小红书"]):
                 summary = await self.get_realtime_summary()
+                if random.random() > 0.6:
+                    summary += " 你想听哪方面的？我再详细说说～"
                 event.set_result([Plain(summary)])
                 return True
 
@@ -87,7 +91,7 @@ class RealtimeInfoPlugin(Star):
 
             return False
         except Exception as e:
-            logger.error(f"handle 函数出错: {e} | 类型: {type(e)}")
+            logger.error(f"handle 函数出错: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return False
@@ -95,11 +99,11 @@ class RealtimeInfoPlugin(Star):
     def info(self):
         return {
             "name": "RealtimeInfo",
-            "desc": "实时网络资讯调试版",
-            "help": "测试命令：热点 / !网址 xxx",
-            "version": "2.4.0-debug",
+            "desc": "实时网络资讯插件",
+            "help": "试试：热点 / 现在网上有什么 / !网址 日本AV",
+            "version": "2.5.0-debug",
             "author": "YourName",
-            "repo": ""
+            "repo": "https://github.com/你的/astrbot_plugin_realtime_info"
         }
 
     async def terminate(self):
