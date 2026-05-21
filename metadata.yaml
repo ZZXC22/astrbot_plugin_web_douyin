@@ -1,9 +1,0 @@
-name: RealtimeInfo
-author: YourName
-version: 2.0.0
-desc: 实时网络热点与讯息插件（自然聊天式响应，支持成人内容描述，仅明确要求时提供链接）
-display_name: 实时网络资讯
-short_desc: 让机器人实时了解网络热点、热梗，并自然融入聊天（支持色情内容）
-astrbot_version: ">=1.0.0"
-support_platforms: ["qq", "telegram", "wechat", "discord"]  # 根据需要调整
-repo: "https://github.com/你的用户名/astrbot_plugin_realtime_info"
