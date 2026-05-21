@@ -1,0 +1,19 @@
+{
+  "search_timeout": {
+    "description": "搜索超时时间（秒）",
+    "type": "number",
+    "default": 10,
+    "hint": "网络慢时可以调大一点"
+  },
+  "douyin_api": {
+    "description": "抖音热搜API地址",
+    "type": "string",
+    "default": "https://v.api.aa1.cn/api/douyin/hot.php",
+    "hint": "可换其他免费接口"
+  },
+  "enable_image": {
+    "description": "是否发送视频封面图",
+    "type": "boolean",
+    "default": true
+  }
+}
