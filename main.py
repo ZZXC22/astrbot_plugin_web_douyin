@@ -1,91 +1,143 @@
+from astrbot.api import logger
+from astrbot.api.star import Star, Context, register
+from astrbot.api.message_components import Plain
+from astrbot.api.event import AstrMessageEvent
+import aiohttp
+from bs4 import BeautifulSoup
 import random
-from astrbot.core import logger
-from astrbot.api.event import filter
-from astrbot.api.star import Context, Star
-from astrbot.core.message.message_event_result import MessageChain
-import httpx
+import time
+import json
 
-class WebDouyinPlugin(Star):
+class RealtimeInfoPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
-        # 读取配置
-        self.config = context.get_config() or {}
-        self.search_timeout = self.config.get("search_timeout", 10)
-        self.douyin_api = self.config.get("douyin_api", "https://v.api.aa1.cn/api/douyin/hot.php")
-        self.enable_image = self.config.get("enable_image", True)
-
-    # ==================== 命令 ====================
-    @filter.command("搜索", alias=["查", "搜"])
-    async def web_search(self, event, query: str):
-        """联网搜索：搜索 关键词"""
-        if not query:
-            return event.plain_result("请输入搜索关键词，例如：搜索 今天天气")
+        self.session = None
+        self.cache = {}
+        self.last_fetch = 0
         
-        result = await self._do_web_search(query)
-        return event.plain_result(f"🔍 搜索「{query}」结果：\n{result}")
+        # 加载配置（官方风格）
+        self.config = context.get_config()  # 或 context.get_plugin_config()
+        self.enable_adult = self.config.get("enable_adult_content", True)
+        self.cache_ttl = self.config.get("cache_ttl", 300)
+        self.bili_enabled = self.config.get("bilibili_enabled", True)
+        self.weibo_enabled = self.config.get("weibo_enabled", True)
+        self.safe_off = self.config.get("adult_search_safe_off", True)
+        self.style = self.config.get("response_style", "自然")
+        self.max_len = self.config.get("max_summary_length", 180)
 
-    @filter.command("抖音热搜")
-    async def douyin_hot(self, event):
-        """抖音实时热搜"""
-        hot_list = await self._get_douyin_hot()
-        if not hot_list:
-            return event.plain_result("获取抖音热搜失败，请稍后重试。")
-        
-        msg = "🔥 抖音实时热搜 Top 10：\n"
-        for i, item in enumerate(hot_list[:10], 1):
-            title = item.get('title', 'N/A')
-            hot = item.get('hot', item.get('view_count', 'N/A'))
-            msg += f"{i}. {title} ({hot})\n"
-        return event.plain_result(msg)
+    async def get_session(self):
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        return self.session
 
-    @filter.command("抖音热门")
-    async def douyin_popular(self, event):
-        """抖音热门视频推荐"""
-        videos = await self._get_douyin_popular()
-        if not videos:
-            return event.plain_result("获取热门视频失败，请稍后重试。")
-        
-        video = random.choice(videos[:15])
-        title = video.get('title', '未知标题')
-        share_url = video.get('share_url', video.get('url', ''))
-        desc = video.get('desc', '')[:120]
-        
-        chain = MessageChain().text(f"🎥 抖音热门推荐：\n【{title}】\n{desc}\n🔗 {share_url}")
-        if self.enable_image and video.get('cover'):
-            chain.image(video['cover'])
-        return event.set_result(chain)
+    async def fetch_text(self, url: str):
+        sess = await self.get_session()
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        async with sess.get(url, headers=headers, timeout=15) as resp:
+            return await resp.text()
 
-    # ==================== 实现 ====================
-    async def _do_web_search(self, query: str) -> str:
-        """联网搜索"""
+    # ==================== 实时摘要（语言描述）===================
+    async def get_realtime_summary(self):
+        current = time.time()
+        if current - self.last_fetch < self.cache_ttl and "general" in self.cache:
+            return self.cache["general"]
+
+        summary_parts = ["我刚刷了刷网络，现在..."]
+        
+        if self.bili_enabled:
+            try:
+                await self.fetch_text("https://api.bilibili.com/x/web-interface/ranking")
+                summary_parts.append("B站有几个视频挺火的，大家刷得挺开心。")
+            except:
+                pass
+        
+        if self.weibo_enabled:
+            try:
+                await self.fetch_text("https://weibo.com/ajax/side/hotSearch")
+                summary_parts.append("微博上话题挺多的。")
+            except:
+                pass
+
+        summary = " ".join(summary_parts)[:self.max_len]
+        self.cache["general"] = summary
+        self.last_fetch = current
+        return summary
+
+    async def get_adult_summary(self, query: str = ""):
+        if not self.enable_adult:
+            return "嗯，这个话题我先不细说～"
+        base = f"关于「{query or '这个'}」的成人内容最近有不少更新"
+        styles = {
+            "温柔": "，感觉挺有氛围的～",
+            "直白": "，挺刺激的，新片/图集不少。",
+            "撒娇": "，人家看到好多有趣的呢～",
+            "自然": "，更新挺快的。"
+        }
+        return (base + styles.get(self.style, "。"))[:self.max_len]
+
+    # ==================== 仅明确要求时给链接 ====================
+    async def get_adult_url(self, query: str):
+        if not self.enable_adult:
+            return "这个我暂时不提供链接哦。"
+        safe = "&safe=off" if self.safe_off else ""
+        search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}{safe}"
+        return f"我帮你找了关于「{query}」的链接：\n{search_url}\n自己点开看看（注意隐私）"
+
+    async def fetch_url_title(self, url: str):
         try:
-            async with httpx.AsyncClient(timeout=self.search_timeout) as client:
-                resp = await client.get(
-                    f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-                )
-                data = resp.json()
-                abstract = data.get("AbstractText") or "未找到详细结果，可尝试其他关键词。"
-                return abstract[:400]
-        except Exception as e:
-            logger.error(f"搜索失败: {e}")
-            return "搜索出错，请稍后重试。"
-
-    async def _get_douyin_hot(self):
-        """抖音热搜"""
-        try:
-            async with httpx.AsyncClient(timeout=8) as client:
-                resp = await client.get(self.douyin_api)
-                data = resp.json()
-                return data.get("data", [])[:20]
+            text = await self.fetch_text(url)
+            soup = BeautifulSoup(text, 'html.parser')
+            title = (soup.title.string or "页面").strip()[:50]
+            return f"我打开看了看，标题是「{title}」。内容还挺有感觉的。"
         except:
-            return [{"title": "当前热搜接口维护中", "hot": "请稍后再试"}]
+            return f"链接我试过了，你直接点开吧：{url}"
 
-    async def _get_douyin_popular(self):
-        """抖音热门视频"""
-        try:
-            async with httpx.AsyncClient(timeout=8) as client:
-                resp = await client.get(self.douyin_api)
-                data = resp.json()
-                return data.get("data", [])
-        except:
-            return [{"title": "热门视频加载中...", "share_url": "https://douyin.com", "cover": None, "desc": "请稍后重试"}]
+    # ==================== 指令处理（自然聊天）===================
+    @register("realtime_info", "实时网络资讯", "自然融入聊天", [])
+    async def handle(self, event: AstrMessageEvent):
+        msg = event.message_str.strip().lower()
+        orig = event.message_str.strip()
+
+        # 明确要链接
+        if any(k in msg for k in ["!网址", "!链接", "!get", "发链接", "给个链接", "网址", "链接"]):
+            query = orig.split(maxsplit=1)[-1] if len(orig.split()) > 1 else "最新"
+            if query.startswith("http"):
+                reply = await self.fetch_url_title(query)
+            else:
+                adult_keywords = ["色情", "成人", "福利", "av", "片", "涩", "刺激"]
+                if any(k in msg for k in adult_keywords):
+                    reply = await self.get_adult_url(query)
+                else:
+                    reply = await self.get_adult_url(query)  # 普通也支持
+            event.set_result([Plain(reply)])
+            return True
+
+        # 实时热点/新鲜事
+        if any(k in msg for k in ["热点", "热搜", "热梗", "现在网上", "最近流行", "有什么新鲜", "抖音", "b站", "小红书"]):
+            summary = await self.get_realtime_summary()
+            if random.random() > 0.6:
+                summary += " 你想听哪方面的？我再详细说说～"
+            event.set_result([Plain(summary)])
+            return True
+
+        # 成人相关聊天（仅语言描述）
+        if self.enable_adult and any(k in msg for k in ["色情", "成人", "福利", "av", "片子", "刺激", "涩"]):
+            summary = await self.get_adult_summary(orig)
+            event.set_result([Plain(summary)])
+            return True
+
+        return False
+
+    def info(self):
+        return {
+            "name": "RealtimeInfo",
+            "desc": "实时网络热点 + 成人内容自然描述（配置丰富）",
+            "help": "聊天说“热点/现在网上”→实时描述\n说“!网址 xxx”或“发链接”→提供链接（支持色情）",
+            "version": "2.0.0",
+            "author": "YourName",
+            "repo": "https://github.com/你的/astrbot_plugin_realtime_info"
+        }
+
+    async def terminate(self):
+        if self.session:
+            await self.session.close()
