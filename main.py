@@ -1,7 +1,7 @@
 import random
 from astrbot.core import logger
-from astrbot import filter as astrbot_filter
-from astrbot.core.star import Context, Star
+from astrbot.api.event import filter  # ← 这里是关键修正！
+from astrbot.api.star import Context, Star
 from astrbot.core.message.message_event_result import MessageEventResult, MessageChain
 import httpx
 
@@ -10,7 +10,7 @@ class WebDouyinPlugin(Star):
         super().__init__(context)
 
     # ==================== 命令 ====================
-    @astrbot_filter.command("搜索", alias=["查", "搜"])
+    @filter.command("搜索", alias=["查", "搜"])
     async def web_search(self, event, query: str):
         """联网搜索：搜索 关键词"""
         if not query:
@@ -19,7 +19,7 @@ class WebDouyinPlugin(Star):
         result = await self._do_web_search(query)
         return event.plain_result(f"🔍 搜索「{query}」结果：\n{result}")
 
-    @astrbot_filter.command("抖音热搜")
+    @filter.command("抖音热搜")
     async def douyin_hot(self, event):
         """抖音实时热搜"""
         hot_list = await self._get_douyin_hot()
@@ -33,7 +33,7 @@ class WebDouyinPlugin(Star):
             msg += f"{i}. {title} ({hot})\n"
         return event.plain_result(msg)
 
-    @astrbot_filter.command("抖音热门")
+    @filter.command("抖音热门")
     async def douyin_popular(self, event):
         """抖音热门视频推荐"""
         videos = await self._get_douyin_popular()
@@ -69,12 +69,10 @@ class WebDouyinPlugin(Star):
         """抖音热搜"""
         try:
             async with httpx.AsyncClient(timeout=8) as client:
-                # 免费公开接口（可替换更稳定源）
                 resp = await client.get("https://v.api.aa1.cn/api/douyin/hot.php")
                 data = resp.json()
                 return data.get("data", [])[:20]
         except:
-            # 备用数据
             return [{"title": "当前热搜接口维护中", "hot": "请稍后再试"}]
 
     async def _get_douyin_popular(self):
