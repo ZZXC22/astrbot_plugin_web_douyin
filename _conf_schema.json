@@ -1,7 +1,7 @@
 {
   "search_timeout": {
     "description": "搜索超时时间（秒）",
-    "type": "number",
+    "type": "int",
     "default": 10,
     "hint": "网络慢时可以调大一点"
   },
